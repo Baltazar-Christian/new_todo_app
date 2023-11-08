@@ -3,6 +3,8 @@ import 'package:flutter/cupertino.dart'; // For iOS style icons
 import 'add_edit_todo_page.dart';
 import 'models/todo_item.dart';
 import 'services/database.dart';
+import 'app_bar.dart';
+
 // import 'services/database_service.dart';
 
 class MainScreen extends StatefulWidget {
@@ -28,9 +30,21 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.lightBlue,
-        title: Text('All Tasks'),
-        elevation: 0, // Removes the shadow
+        backgroundColor:
+            Colors.transparent, // Set your desired background color
+        title: Text(
+          'All Tasks',
+          style: TextStyle(
+            color: Colors
+                .lightBlue, // Choose a color that contrasts well with the background
+            fontWeight: FontWeight.bold, // If your design requires bold text
+          ),
+        ),
+        centerTitle: false, // If your title should be centered
+        elevation: 0, // Removes the shadow underneath the AppBar
+        actions: [
+          // If you have any actions, add them here
+        ],
       ),
       body: FutureBuilder<List<TodoItem>>(
         future: _todoListFuture,
@@ -99,6 +113,7 @@ class _MainScreenState extends State<MainScreen> {
             MaterialPageRoute(
                 builder: (context) => AddEditTodoPage(todoItem: todoItem)),
           );
+
           _refreshTodoList();
         },
       ),
