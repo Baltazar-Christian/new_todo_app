@@ -112,8 +112,12 @@ class _MainScreenState extends State<MainScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: Icon(Icons.delete),
-              onPressed: () => _deleteTodoItem(todoItem.id),
+              icon: Icon(Icons.delete, color: Colors.red),
+              onPressed: () async {
+                // Delete the item
+                await DatabaseService.instance.deleteTodoItem(todoItem.id!);
+                _loadTodoList(); // Make sure todoItem.id is an int
+              },
             ),
             IconButton(
               icon: todoItem.isDone
