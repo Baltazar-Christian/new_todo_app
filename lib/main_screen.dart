@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'; // For iOS style icons
 import 'add_edit_todo_page.dart';
 import 'models/todo_item.dart';
 import 'services/database.dart';
+// import 'services/database_service.dart';
 
 class MainScreen extends StatefulWidget {
   @override
@@ -26,7 +28,9 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('TODO List'),
+        backgroundColor: Colors.lightBlue,
+        title: Text('All Tasks'),
+        elevation: 0, // Removes the shadow
       ),
       body: FutureBuilder<List<TodoItem>>(
         future: _todoListFuture,
@@ -43,55 +47,60 @@ class _MainScreenState extends State<MainScreen> {
             itemCount: snapshot.data!.length,
             itemBuilder: (ctx, i) {
               var todoItem = snapshot.data![i];
-              return ListTile(
-                title: Text(todoItem.title),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Checkbox(
-                      value: todoItem.isDone,
-                      onChanged: (bool? value) async {
-                        // Update isDone status
-                        await DatabaseService.instance.updateTodoItem(
-                          todoItem.copyWith(isDone: value ?? false),
-                        );
-                        _refreshTodoList();
-                      },
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.delete),
-                      onPressed: () async {
-                        // Delete the item
-                        await DatabaseService.instance
-                            .deleteTodoItem(todoItem.id!);
-                        _refreshTodoList();
-                      },
-                    ),
-                  ],
-                ),
-                onTap: () async {
-                  // Navigate to the edit page
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (context) =>
-                            AddEditTodoPage(todoItem: todoItem)),
-                  );
-                  _refreshTodoList();
-                },
-              );
+              return _buildTaskTile(todoItem, i);
             },
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // Navigate to add page
           await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => AddEditTodoPage()),
           );
           _refreshTodoList();
         },
         child: Icon(Icons.add),
+        backgroundColor: Colors.lightBlue,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget _buildTaskTile(TodoItem todoItem, int index) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        title: Text(todoItem.title),
+        trailing: IconButton(
+          icon: todoItem.isDone
+              ? Icon(CupertinoIcons.check_mark_circled_solid,
+                  color: Colors.green)
+              : Icon(CupertinoIcons.circle, color: Colors.grey),
+          onPressed: () async {
+            todoItem.isDone = !todoItem.isDone;
+            await DatabaseService.instance.updateTodoItem(todoItem);
+            _refreshTodoList();
+          },
+        ),
+        onTap: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+                builder: (context) => AddEditTodoPage(todoItem: todoItem)),
+          );
+          _refreshTodoList();
+        },
       ),
     );
   }
