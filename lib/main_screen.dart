@@ -5,8 +5,6 @@ import 'models/todo_item.dart';
 import 'services/database.dart';
 import 'app_bar.dart';
 
-// import 'services/database_service.dart';
-
 class MainScreen extends StatefulWidget {
   @override
   _MainScreenState createState() => _MainScreenState();
@@ -14,64 +12,77 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   late Future<List<TodoItem>> _todoListFuture;
+  TextEditingController _searchController = TextEditingController();
+  List<TodoItem> _todoList = [];
+  List<TodoItem> _filteredTodoList = [];
 
   @override
   void initState() {
     super.initState();
-    _todoListFuture = DatabaseService.instance.readAllTodoItems();
+    _searchController.addListener(_onSearchChanged);
+    _loadTodoList();
   }
 
-  Future<void> _refreshTodoList() async {
-    _todoListFuture = DatabaseService.instance.readAllTodoItems();
+  void _loadTodoList() async {
+    _todoList = await DatabaseService.instance.readAllTodoItems();
+    _filteredTodoList = _todoList;
     setState(() {});
+  }
+
+  void _onSearchChanged() {
+    String searchQuery = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredTodoList = _todoList.where((todoItem) {
+        return todoItem.title.toLowerCase().contains(searchQuery);
+      }).toList();
+    });
+  }
+
+  Future<void> _deleteTodoItem(int id) async {
+    await DatabaseService.instance.deleteTodoItem(id);
+    _loadTodoList();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor:
-            Colors.transparent, // Set your desired background color
-        title: Text(
-          'All Tasks',
-          style: TextStyle(
-            color: Colors
-                .lightBlue, // Choose a color that contrasts well with the background
-            fontWeight: FontWeight.bold, // If your design requires bold text
+        backgroundColor: Colors.transparent,
+        title: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Search Tasks',
+            border: InputBorder.none,
+            suffixIcon: Icon(Icons.search),
           ),
         ),
-        centerTitle: false, // If your title should be centered
-        elevation: 0, // Removes the shadow underneath the AppBar
+        centerTitle: false,
+        elevation: 0,
         actions: [
-          // If you have any actions, add them here
+          IconButton(
+            icon: Icon(Icons.clear),
+            onPressed: () {
+              _searchController.clear();
+              _onSearchChanged();
+            },
+          ),
         ],
       ),
-      body: FutureBuilder<List<TodoItem>>(
-        future: _todoListFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (snapshot.data == null || snapshot.data!.isEmpty) {
-            return Center(child: Text('No TODOs found'));
-          }
-
-          return ListView.builder(
-            itemCount: snapshot.data!.length,
-            itemBuilder: (ctx, i) {
-              var todoItem = snapshot.data![i];
-              return _buildTaskTile(todoItem, i);
-            },
-          );
-        },
-      ),
+      body: _filteredTodoList.isEmpty
+          ? Center(child: Text('No TODOs found'))
+          : ListView.builder(
+              itemCount: _filteredTodoList.length,
+              itemBuilder: (ctx, i) {
+                var todoItem = _filteredTodoList[i];
+                return _buildTaskTile(todoItem, i);
+              },
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => AddEditTodoPage()),
           );
-          _refreshTodoList();
+          _loadTodoList();
         },
         child: Icon(Icons.add),
         backgroundColor: Colors.lightBlue,
@@ -97,24 +108,32 @@ class _MainScreenState extends State<MainScreen> {
       ),
       child: ListTile(
         title: Text(todoItem.title),
-        trailing: IconButton(
-          icon: todoItem.isDone
-              ? Icon(CupertinoIcons.check_mark_circled_solid,
-                  color: Colors.green)
-              : Icon(CupertinoIcons.circle, color: Colors.grey),
-          onPressed: () async {
-            todoItem.isDone = !todoItem.isDone;
-            await DatabaseService.instance.updateTodoItem(todoItem);
-            _refreshTodoList();
-          },
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(Icons.delete),
+              onPressed: () => _deleteTodoItem(todoItem.id),
+            ),
+            IconButton(
+              icon: todoItem.isDone
+                  ? Icon(CupertinoIcons.check_mark_circled_solid,
+                      color: Color.fromARGB(255, 142, 246, 146))
+                  : Icon(CupertinoIcons.circle, color: Colors.grey),
+              onPressed: () async {
+                todoItem.isDone = !todoItem.isDone;
+                await DatabaseService.instance.updateTodoItem(todoItem);
+                _loadTodoList();
+              },
+            ),
+          ],
         ),
         onTap: () async {
           await Navigator.of(context).push(
             MaterialPageRoute(
                 builder: (context) => AddEditTodoPage(todoItem: todoItem)),
           );
-
-          _refreshTodoList();
+          _loadTodoList();
         },
       ),
     );
