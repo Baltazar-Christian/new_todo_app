@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart'; // For iOS style icons
-import 'add_edit_todo_page.dart';
 import 'models/todo_item.dart';
 import 'services/database.dart';
-import 'app_bar.dart';
 
 class MainScreen extends StatefulWidget {
   @override
@@ -11,7 +9,6 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  late Future<List<TodoItem>> _todoListFuture;
   TextEditingController _searchController = TextEditingController();
   List<TodoItem> _todoList = [];
   List<TodoItem> _filteredTodoList = [];
@@ -38,6 +35,36 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  Future<void> _confirmDeleteDialog(int id) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Confirm Delete'),
+          content: Text('Are you sure you want to delete this task?'),
+          actions: <Widget>[
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(primary: Colors.grey),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Icon(Icons.cancel),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(primary: Colors.red),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteTodoItem(id);
+              },
+              child: Icon(Icons.delete),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _deleteTodoItem(int id) async {
     await DatabaseService.instance.deleteTodoItem(id);
     _loadTodoList();
@@ -48,15 +75,28 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        title: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: 'Search Tasks',
-            border: InputBorder.none,
-            suffixIcon: Icon(Icons.search),
+        title: Center(
+          child: Container(
+            height: 32,
+            width: MediaQuery.of(context).size.width * 0.8,
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search Tasks',
+                fillColor: Colors.white,
+                filled: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 0),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(32),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon:
+                    Icon(Icons.search, color: Theme.of(context).primaryColor),
+              ),
+            ),
           ),
         ),
-        centerTitle: false,
+        centerTitle: true,
         elevation: 0,
         actions: [
           IconButton(
@@ -78,12 +118,7 @@ class _MainScreenState extends State<MainScreen> {
               },
             ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => AddEditTodoPage()),
-          );
-          _loadTodoList();
-        },
+        onPressed: () => _showAddEditTodoDialog(),
         child: Icon(Icons.add),
         backgroundColor: Colors.lightBlue,
       ),
@@ -112,12 +147,12 @@ class _MainScreenState extends State<MainScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
+              icon: Icon(Icons.edit, color: Colors.blue),
+              onPressed: () => _showAddEditTodoDialog(todoItem: todoItem),
+            ),
+            IconButton(
               icon: Icon(Icons.delete, color: Colors.red),
-              onPressed: () async {
-                // Delete the item
-                await DatabaseService.instance.deleteTodoItem(todoItem.id!);
-                _loadTodoList(); // Make sure todoItem.id is an int
-              },
+              onPressed: () => _confirmDeleteDialog(todoItem.id!),
             ),
             IconButton(
               icon: todoItem.isDone
@@ -132,14 +167,59 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ],
         ),
-        onTap: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-                builder: (context) => AddEditTodoPage(todoItem: todoItem)),
-          );
-          _loadTodoList();
-        },
       ),
+    );
+  }
+
+  Future<void> _showAddEditTodoDialog({TodoItem? todoItem}) async {
+    final _titleController = TextEditingController(text: todoItem?.title ?? '');
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(todoItem == null ? 'Add Task' : 'Edit Task'),
+          content: TextField(
+            controller: _titleController,
+            decoration: InputDecoration(
+              labelText: 'Task Name',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+          ),
+          actions: <Widget>[
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(primary: Colors.grey),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Icon(Icons.cancel),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(primary: Colors.green),
+              onPressed: () async {
+                final String title = _titleController.text;
+                if (title.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Title cannot be empty')),
+                  );
+                  return;
+                }
+                if (todoItem == null) {
+                  await DatabaseService.instance
+                      .createTodoItem(TodoItem(title: title));
+                } else {
+                  await DatabaseService.instance
+                      .updateTodoItem(todoItem.copyWith(title: title));
+                }
+                Navigator.of(context).pop();
+                _loadTodoList();
+              },
+              child: Icon(Icons.check),
+            ),
+          ],
+        );
+      },
     );
   }
 }
